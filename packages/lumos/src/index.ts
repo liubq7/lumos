@@ -29,7 +29,7 @@ export type {
   PackedSince,
 } from "@ckb-lumos/base/lib/primitive";
 
-export { core, since, utils } from "@ckb-lumos/base";
+export { core, since, utils, CellProvider } from "@ckb-lumos/base";
 export * as config from "@ckb-lumos/config-manager";
 
 export { RPC } from "@ckb-lumos/rpc";
