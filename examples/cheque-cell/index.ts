@@ -14,6 +14,7 @@ import { Reader, normalizers } from "ckb-js-toolkit";
 import { Set } from "immutable";
 import { values } from "@ckb-lumos/base";
 const { getConfig } = config;
+const { nameOfScript } = config.helpers;
 const { TransactionSkeleton } = helpers;
 const { computeScriptHash } = utils;
 const { ScriptValue } = values;
@@ -21,7 +22,7 @@ const { ScriptValue } = values;
 interface CreateChequeOptions {
   cellProvider: CellProvider;
   senderLock: Script;
-  reciverLock: Script;
+  receiverLock: Script;
   SUDTScript: Script;
   amount: HexNumber;
 }
@@ -30,18 +31,24 @@ async function injectAmount(
   txSkeleton: helpers.TransactionSkeletonType,
   senderLock: Script,
   SUDTScript: Script,
+  config: config.Config,
   SUDTAmount: HexNumber
 ): Promise<helpers.TransactionSkeletonType> {
   const cellProvider = txSkeleton.get("cellProvider")!;
+  const UDTLock: Script = {
+    code_hash: config.SCRIPTS.ANYONE_CAN_PAY?.CODE_HASH!,
+    hash_type: "type",
+    args: senderLock.args,
+  };
   const cellCollector = cellProvider.collector({
-    lock: senderLock,
+    lock: UDTLock,
     type: SUDTScript,
   });
   let amount = utils.readBigUInt128LE(SUDTAmount);
   const changeCell: Cell = {
     cell_output: {
       capacity: "0x34e62ce00",
-      lock: senderLock,
+      lock: UDTLock,
       type: SUDTScript,
     },
     data: "0x",
@@ -266,19 +273,82 @@ function calculateTxFee(txSkeleton: helpers.TransactionSkeletonType): bigint {
   return calculateFee(txSize, feeRate);
 }
 
-export async function createChequeCell(
-  options: CreateChequeOptions
-): Promise<helpers.TransactionSkeletonType> {
-  let txSkeleton = TransactionSkeleton({ cellProvider: options.cellProvider });
-
-  const senderLockHash = computeScriptHash(options.senderLock);
-  const reciverLockHash = computeScriptHash(options.reciverLock);
+function generateChequeLock(senderLock: Script, receiverLock: Script): Script {
+  const senderLockHash = computeScriptHash(senderLock);
+  const receiverLockHash = computeScriptHash(receiverLock);
   const chequeLock: Script = {
     code_hash:
       "0x9f27f3afc8d26dfa8bc0c8fa21bc033ddcdab6ad83d5e865cdd6d5d0b3b95642",
     hash_type: "type",
-    args: "0x" + reciverLockHash.slice(0, 41) + senderLockHash.slice(0, 41),
+    args: "0x" + receiverLockHash.slice(0, 41) + senderLockHash.slice(0, 41),
   };
+  return chequeLock;
+}
+
+function verifyLock(lock: Script, config: config.Config): void {
+  if (nameOfScript(lock, config.SCRIPTS) !== "SECP256K1_BLAKE160")
+    throw new Error("lockScript must be SECP256K1_BLAKE160");
+}
+
+function updateCellDeps(
+  txSkeleton: helpers.TransactionSkeletonType,
+  config: config.Config
+): helpers.TransactionSkeletonType {
+  txSkeleton = txSkeleton.update("cellDeps", (cellDeps) => {
+    return cellDeps.clear();
+  });
+
+  const secp256k1Config = config.SCRIPTS.SECP256K1_BLAKE160;
+  const sudtConfig = config.SCRIPTS.SUDT;
+  const anyoneCanPayConfig = config.SCRIPTS.ANYONE_CAN_PAY;
+  if (!secp256k1Config || !sudtConfig || !anyoneCanPayConfig) {
+    throw new Error(
+      "Provided config does not have SECP256K1_BLAKE160 or SUDT or ANYONE_CAN_PAY script setup!"
+    );
+  }
+
+  txSkeleton = txSkeleton.update("cellDeps", (cellDeps) => {
+    return cellDeps.push(
+      {
+        out_point: {
+          tx_hash: secp256k1Config.TX_HASH,
+          index: secp256k1Config.INDEX,
+        },
+        dep_type: secp256k1Config.DEP_TYPE,
+      },
+      {
+        out_point: {
+          tx_hash: sudtConfig.TX_HASH,
+          index: sudtConfig.INDEX,
+        },
+        dep_type: sudtConfig.DEP_TYPE,
+      },
+      {
+        out_point: {
+          tx_hash: anyoneCanPayConfig.TX_HASH,
+          index: anyoneCanPayConfig.INDEX,
+        },
+        dep_type: anyoneCanPayConfig.DEP_TYPE,
+      }
+    );
+  });
+
+  return txSkeleton;
+}
+
+export async function createChequeCell(
+  options: CreateChequeOptions,
+  config: config.Config = getConfig()
+): Promise<helpers.TransactionSkeletonType> {
+  verifyLock(options.senderLock, config);
+  verifyLock(options.receiverLock, config);
+  let txSkeleton = TransactionSkeleton({ cellProvider: options.cellProvider });
+  txSkeleton = updateCellDeps(txSkeleton, config);
+
+  const chequeLock = generateChequeLock(
+    options.senderLock,
+    options.receiverLock
+  );
   const output: Cell = {
     cell_output: {
       capacity: "0x3c5986200",
@@ -295,6 +365,7 @@ export async function createChequeCell(
     txSkeleton,
     options.senderLock,
     options.SUDTScript,
+    config,
     options.amount
   );
   txSkeleton = await injectCapacity(txSkeleton, options.senderLock);
@@ -305,29 +376,74 @@ export async function createChequeCell(
 interface ClaimChequeOptions {
   cellProvider: CellProvider;
   SUDTScript: Script;
-  receiverScript: Script;
-  senderScript?: Script;
+  receiverLock: Script;
+  senderLock: Script;
 }
-export function claimCheque(
+
+export async function claimCheque(
   options: ClaimChequeOptions,
   config: config.Config = getConfig()
-): helpers.TransactionSkeletonType {
+): Promise<helpers.TransactionSkeletonType> {
+  verifyLock(options.senderLock, config);
+  verifyLock(options.receiverLock, config);
   let txSkeleton = TransactionSkeleton({ cellProvider: options.cellProvider });
+  txSkeleton = updateCellDeps(txSkeleton, config);
+
+  const chequeLock = generateChequeLock(
+    options.senderLock,
+    options.receiverLock
+  );
+  const cellCollector = options.cellProvider.collector({
+    lock: chequeLock,
+    type: options.SUDTScript,
+  });
+  const chequeOutput: Cell = {
+    cell_output: {
+      capacity: "0x3c5986200",
+      lock: options.senderLock,
+      type: undefined,
+    },
+    data: "0x",
+  };
+  let claimAmount = 0n;
+  for await (const inputCell of cellCollector.collect()) {
+    const amount = utils.readBigUInt128LE(inputCell.data);
+    claimAmount += amount;
+    txSkeleton = txSkeleton.update("inputs", (inputs) =>
+      inputs.push(inputCell)
+    );
+    txSkeleton = txSkeleton.update("outputs", (outputs) => {
+      return outputs.push(chequeOutput);
+    });
+  }
+
+  const output: Cell = {
+    cell_output: {
+      capacity: "0x34e62ce00",
+      lock: options.receiverLock,
+      type: options.SUDTScript,
+    },
+    data: utils.toBigUInt128LE(claimAmount),
+  };
+  txSkeleton = txSkeleton.update("outputs", (outputs) => outputs.push(output));
+
+  txSkeleton = await injectCapacity(txSkeleton, options.receiverLock);
 
   return txSkeleton;
 }
 
 interface WithdrawChequeOptions {
   cellProvider: CellProvider;
-  senderScript: Script;
+  senderLock: Script;
   SUDTScript?: Script;
-  receiverScript?: Script;
+  receiverLock?: Script;
 }
 export function withdrawCheque(
   options: WithdrawChequeOptions,
   config: config.Config = getConfig()
 ): helpers.TransactionSkeletonType {
   let txSkeleton = TransactionSkeleton({ cellProvider: options.cellProvider });
+  txSkeleton = updateCellDeps(txSkeleton, config);
 
   return txSkeleton;
 }
