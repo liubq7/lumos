@@ -20,8 +20,8 @@ const { TransactionSkeleton } = helpers;
 const { computeScriptHash } = utils;
 const { ScriptValue } = values;
 
-const UDT_CAPACITY = "0x34e62ce00";  // 142
-const CHEQUE_CAPACITY = "0x3c5986200";  // 162
+const UDT_CAPACITY = "0x34e62ce00"; // 142
+const CHEQUE_CAPACITY = "0x3c5986200"; // 162
 
 async function injectAmount(
   txSkeleton: helpers.TransactionSkeletonType,
@@ -47,7 +47,6 @@ async function injectAmount(
 
   if (amount > 0n) {
     for await (const inputCell of cellCollector.collect()) {
-      console.log(inputCell);
       txSkeleton = txSkeleton.update("inputs", (inputs) =>
         inputs.push(inputCell)
       );
@@ -110,50 +109,47 @@ async function injectCapacity(
     needCapacity = 0n;
   }
 
+  const cellProvider = txSkeleton.get("cellProvider");
+  if (!cellProvider) throw new Error("Cell provider is missing!");
+  const cellCollector = cellProvider.collector({
+    lock: senderLock,
+    type: "empty",
+    data: "0x",
+  });
 
-    const cellProvider = txSkeleton.get("cellProvider");
-    if (!cellProvider) throw new Error("Cell provider is missing!");
-    const cellCollector = cellProvider.collector({
-      lock: senderLock,
-      type: "empty",
-      data: "0x",
-    });
+  let previousInputs = Set<string>();
+  for (const input of txSkeleton.get("inputs")) {
+    previousInputs = previousInputs.add(
+      `${input.out_point!.tx_hash}_${input.out_point!.index}`
+    );
+  }
 
-    let previousInputs = Set<string>();
-    for (const input of txSkeleton.get("inputs")) {
-      previousInputs = previousInputs.add(
-        `${input.out_point!.tx_hash}_${input.out_point!.index}`
-      );
-    }
-
-    for await (const inputCell of cellCollector.collect()) {
-      if (
-        previousInputs.has(
-          `${inputCell.out_point!.tx_hash}_${inputCell.out_point!.index}`
-        )
+  for await (const inputCell of cellCollector.collect()) {
+    if (
+      previousInputs.has(
+        `${inputCell.out_point!.tx_hash}_${inputCell.out_point!.index}`
       )
-        continue;
-      txSkeleton = txSkeleton.update("inputs", (inputs) =>
-        inputs.push(inputCell)
-      );
-      txSkeleton = txSkeleton.update("witnesses", (witnesses) =>
-        witnesses.push("0x")
-      );
-      const inputCapacity = BigInt(inputCell.cell_output.capacity);
-      let deductCapacity = inputCapacity;
-      if (deductCapacity > needCapacity) {
-        deductCapacity = needCapacity;
-      }
-      needCapacity -= deductCapacity;
-      changeCapacity += inputCapacity - deductCapacity;
-      if (
-        needCapacity === BigInt(0) &&
-        (changeCapacity === BigInt(0) ||
-          changeCapacity >= minimalChangeCapacity)
-      )
-        break;
+    )
+      continue;
+    txSkeleton = txSkeleton.update("inputs", (inputs) =>
+      inputs.push(inputCell)
+    );
+    txSkeleton = txSkeleton.update("witnesses", (witnesses) =>
+      witnesses.push("0x")
+    );
+    const inputCapacity = BigInt(inputCell.cell_output.capacity);
+    let deductCapacity = inputCapacity;
+    if (deductCapacity > needCapacity) {
+      deductCapacity = needCapacity;
     }
-
+    needCapacity -= deductCapacity;
+    changeCapacity += inputCapacity - deductCapacity;
+    if (
+      needCapacity === BigInt(0) &&
+      (changeCapacity === BigInt(0) || changeCapacity >= minimalChangeCapacity)
+    )
+      break;
+  }
 
   if (changeCapacity > BigInt(0)) {
     changeCell.cell_output.capacity = "0x" + changeCapacity.toString(16);
@@ -293,7 +289,7 @@ function updateCellDeps(
 
   const secp256k1Config = config.SCRIPTS.SECP256K1_BLAKE160;
   const sudtConfig = config.SCRIPTS.SUDT;
-  if (!secp256k1Config || !sudtConfig ) {
+  if (!secp256k1Config || !sudtConfig) {
     throw new Error(
       "Provided config does not have SECP256K1_BLAKE160 or SUDT or ANYONE_CAN_PAY script setup!"
     );
@@ -320,15 +316,14 @@ function updateCellDeps(
 
   if (!isCreating) {
     txSkeleton = txSkeleton.update("cellDeps", (cellDeps) => {
-      return cellDeps.push(
-        {
-          dep_type: "dep_group",
-          out_point: {
-            index: "0x0",
-            tx_hash: "0x7f96858be0a9d584b4a9ea190e0420835156a6010a5fde15ffcdc9d9c721ccab"
-          }
-        }
-      );
+      return cellDeps.push({
+        dep_type: "dep_group",
+        out_point: {
+          index: "0x0",
+          tx_hash:
+            "0x7f96858be0a9d584b4a9ea190e0420835156a6010a5fde15ffcdc9d9c721ccab",
+        },
+      });
     });
   }
 
@@ -381,9 +376,9 @@ export async function createChequeCell(
 
 interface ClaimChequeOptions {
   cellProvider: CellProvider;
-  SUDTScript: Script;
   receiverLock: Script;
   senderLock: Script;
+  SUDTScript?: Script;
 }
 
 export async function claimCheque(
@@ -411,28 +406,24 @@ export async function claimCheque(
     },
     data: "0x",
   };
-  let claimAmount = 0n;
+
   for await (const inputCell of cellCollector.collect()) {
-    console.log(inputCell);
     const amount = utils.readBigUInt128LE(inputCell.data);
-    claimAmount += amount;
+    const udtOutput: Cell = {
+      cell_output: {
+        capacity: UDT_CAPACITY,
+        lock: options.receiverLock,
+        type: inputCell.cell_output.type,
+      },
+      data: utils.toBigUInt128LE(amount),
+    };
     txSkeleton = txSkeleton.update("inputs", (inputs) =>
       inputs.push(inputCell)
     );
     txSkeleton = txSkeleton.update("outputs", (outputs) => {
-      return outputs.push(chequeOutput);
+      return outputs.push(chequeOutput, udtOutput);
     });
   }
-
-  const udtOutput: Cell = {
-    cell_output: {
-      capacity: UDT_CAPACITY,
-      lock: options.receiverLock,
-      type: options.SUDTScript,
-    },
-    data: utils.toBigUInt128LE(claimAmount),
-  };
-  txSkeleton = txSkeleton.update("outputs", (outputs) => outputs.push(udtOutput));
 
   txSkeleton = await injectCapacity(txSkeleton, options.receiverLock);
 
@@ -470,7 +461,8 @@ export async function withdrawCheque(
       number: 6,
       length: 0,
       index: 0,
-  }})
+    },
+  });
   for await (const inputCell of chequeCollector.collect()) {
     const udtOutput: Cell = {
       cell_output: {
@@ -490,7 +482,7 @@ export async function withdrawCheque(
       return outputs.push(udtOutput);
     });
   }
-  
+
   txSkeleton = await injectCapacity(txSkeleton, options.senderLock);
 
   return txSkeleton;
