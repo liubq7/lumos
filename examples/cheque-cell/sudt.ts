@@ -1,10 +1,12 @@
+import { bootstrap } from "global-agent";
+bootstrap();
+
 import {
   CkitProvider,
   MintSudtBuilder,
   predefined,
   internal,
 } from "@ckitjs/ckit";
-
 const { Secp256k1Signer } = internal;
 
 const privateKey =
@@ -23,19 +25,6 @@ async function getContext() {
   return { provider, signer };
 }
 
-async function showBasicInfo() {
-  const { provider, signer } = await getContext();
-
-  const address = await signer.getAddress();
-  console.log(`address is : ${address}`);
-
-  const lock = provider.parseToScript(address);
-  console.log(`lock is : ${JSON.stringify(lock)}`);
-
-  const ckbBalance = await provider.getCkbLiveCellsBalance(address);
-  console.log(`ckb balance is: ${ckbBalance}`);
-}
-
 async function createUdt() {
   const { provider, signer } = await getContext();
   const address = await signer.getAddress();
@@ -46,7 +35,6 @@ async function createUdt() {
         {
           recipient: address,
           amount: "0x3e8",
-          // additionalCapacity: helpers.CkbAmount.fromCkb('1').toHex(),
           capacityPolicy: "createCell" as const,
         },
       ],
@@ -61,6 +49,4 @@ async function createUdt() {
   console.log(`udt has created with txHash: ${txHash}`);
 }
 
-showBasicInfo();
 createUdt();
-// udt has created with txHash: 0x467b3b6a5865bbe8e036e8c3c57b934ec9beb1e21d441792331a3d6fe98d53df
