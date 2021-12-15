@@ -9,6 +9,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@ckitjs/ckit": "^0.0.2"
+    "@ckitjs/ckit": "^0.0.2",
+    "@types/global-agent": "^2.1.1",
+    "global-agent": "^3.0.0"
   }
 }

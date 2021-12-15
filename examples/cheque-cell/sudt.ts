@@ -45,7 +45,7 @@ async function createUdt() {
       recipients: [
         {
           recipient: address,
-          amount: "0x64",
+          amount: "0x3e8",
           // additionalCapacity: helpers.CkbAmount.fromCkb('1').toHex(),
           capacityPolicy: "createCell" as const,
         },
@@ -63,4 +63,4 @@ async function createUdt() {
 
 showBasicInfo();
 createUdt();
-// udt has created with txHash: 0xa2f549fabf7936f02923e454f67df16738977bf5cccfa142e48ca0ff01f34769
+// udt has created with txHash: 0x467b3b6a5865bbe8e036e8c3c57b934ec9beb1e21d441792331a3d6fe98d53df
