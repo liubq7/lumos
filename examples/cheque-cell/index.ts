@@ -102,4 +102,4 @@ async function withdraw() {
 
 create(); // create cheque example tx hash: 0xed5eddb7453ab3423d833002a174ac357df92b6533b0ddcc7cb890da0a7a8f8f
 claim(); // claim example tx hash: 0xad4fe105a42b6400f0cd2d9bda613cf8479fd5babe6b893b7ba47dc626534e37
-withdraw();
+withdraw();  // withdraw example tx hash: 0xf60b81b4f581227aa323c699beb8c21b2fe04b15c68aa50a2787c7c10b8f863f

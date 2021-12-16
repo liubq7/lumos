@@ -381,6 +381,18 @@ interface ClaimChequeOptions {
   SUDTScript?: Script;
 }
 
+/**
+ * Cheque cell can be claimed in two ways:
+ * 1. The witness field of the Cheque cell is empty, the receiver provides an official 
+ * secp256k1_blake160 input cell whose the first 20 byte of lock script hash must be 
+ * equal to receiver_lock_hash[0..20] of the cheque cell lock args.
+ * 2. The receiver signs the cheque cell with the secp256k1_blake160_sighash_all algorithm 
+ * and the first 20 byte of the receiver lock hash must be equal to receiver_lock_hash[0..20] 
+ * of the cheque cell lock args.
+ * 
+ * The example here just demonstrate the first way, for more about the second way, check
+ * https://github.com/duanyytop/ckb-cheque-script/blob/main/contracts/ckb-cheque-script/src/entry.rs#L55-L64
+ */
 export async function claimCheque(
   options: ClaimChequeOptions,
   config: config.Config = getConfig()
@@ -437,6 +449,19 @@ interface WithdrawChequeOptions {
   SUDTScript?: Script;
 }
 
+/**
+ * Cheque cell can be withdrawn in two ways if it has been on the chain for longer than 
+ * the lock-up period(6 epochs) :
+ * 1. The witness field of the Cheque cell is empty, The sender provides an official 
+ * secp256k1_blake160 input cell whose the first 20 byte of lock script hash 
+ * must be equal to sender_lock_hash[0..20] of the cheque cell lock args.
+ * 2. The sender signs the cheque cell with the secp256k1_blake160_sighash_all algorithm 
+ * and the first 20 byte of the sender lock hash must be equal to sender_lock_hash[0..20] 
+ * of the cheque cell lock args. 
+ * 
+ * The example here just demonstrate the first way, for more about the second way, check
+ * https://github.com/duanyytop/ckb-cheque-script/blob/main/contracts/ckb-cheque-script/src/entry.rs#L55-L64
+ */
 export async function withdrawCheque(
   options: WithdrawChequeOptions,
   config: config.Config = getConfig()
