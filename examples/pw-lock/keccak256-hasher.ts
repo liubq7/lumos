@@ -41,6 +41,13 @@ export class Keccak256Hasher extends Hasher {
     return this;
   }
 
+  updateReader(data: Reader): Hasher {
+    let array: Buffer;
+    array = Buffer.from(data.serializeJson().replace('0x', ''));
+    this.h.update(array);
+    return this;
+  }
+
   digest(): Reader {
     const hex = '0x' + this.h.digest('hex').toString();
     return new Reader(hex);

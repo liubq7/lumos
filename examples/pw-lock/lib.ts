@@ -1,5 +1,4 @@
 import { Cell, config, core, helpers, Indexer, RPC, toolkit, utils } from "@ckb-lumos/lumos";
-import { Reader } from "@ckb-lumos/toolkit";
 import { Keccak256Hasher } from "./keccak256-hasher";
 
 export const CONFIG = config.createConfig({
@@ -112,12 +111,10 @@ export async function transfer(options: Options): Promise<string> {
       )
     );
 
-    console.log(rawTxHash instanceof Reader); // IT'S FALSE
-
-    hasher.update(rawTxHash);
+    hasher.updateReader(rawTxHash);
     const witness = new toolkit.Reader("0x" + '0'.repeat(170));
     hasher.update(serializeBigInt(witness.length()));
-    hasher.update(witness);
+    hasher.updateReader(witness);
 
     return hasher.digest().serializeJson();
   })();
@@ -132,10 +129,14 @@ export async function transfer(options: Options): Promise<string> {
   signedMessage = "0x" + signedMessage.slice(2, -2) + v.toString(16).padStart(2, "0");
 
   // TODO: ?
+  const witnessArgs = new core.WitnessArgs(new toolkit.Reader(messageForSigning));
   const signedWitness = new toolkit.Reader(
-    core.SerializeWitnessArgs({
-      lock: signedMessage,
-    })
+    core.SerializeWitnessArgs(
+      toolkit.normalizers.NormalizeWitnessArgs({
+        ...witnessArgs,
+        lock: signedMessage,
+      })
+    )
   ).serializeJson();
 
   tx = tx.update("witnesses", (witnesses) => witnesses.push(signedWitness));
