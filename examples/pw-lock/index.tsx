@@ -32,12 +32,7 @@ export function App() {
         const pwLock: Script = {
           code_hash: CONFIG.SCRIPTS.PW_LOCK.CODE_HASH,
           hash_type: CONFIG.SCRIPTS.PW_LOCK.HASH_TYPE,
-          // pw flag       pubkey hash   pw lock flags
-          // chain identity   eth addr      function flag()
-          // 00: Nervos       👇            00: owner
-          // 01: Ethereum     👇            01: administrator
-          //      👇          👇            👇
-          args: `0x01${ethAddr.substring(2)}00`,
+          args: ethAddr
         };
 
         const pwAddr = helpers.generateAddress(pwLock);

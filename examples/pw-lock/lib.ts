@@ -99,6 +99,13 @@ export async function transfer(options: Options): Promise<string> {
         },
         dep_type: CONFIG.SCRIPTS.PW_LOCK.DEP_TYPE,
       },
+      {
+        out_point: {
+          tx_hash: CONFIG.SCRIPTS.SECP256K1_BLAKE160.TX_HASH,
+          index: CONFIG.SCRIPTS.SECP256K1_BLAKE160.INDEX,
+        },
+        dep_type: CONFIG.SCRIPTS.SECP256K1_BLAKE160.DEP_TYPE,
+      }
     )
   );
 
@@ -112,9 +119,16 @@ export async function transfer(options: Options): Promise<string> {
     );
 
     hasher.updateReader(rawTxHash);
-    const witness = new toolkit.Reader("0x" + '0'.repeat(170));
-    hasher.update(serializeBigInt(witness.length()));
-    hasher.updateReader(witness);
+    // const witness = new toolkit.Reader("0x" + '0'.repeat(170));
+    const witness = core.SerializeWitnessArgs({
+      lock: new toolkit.Reader(
+        "0x" +
+          "00".repeat(65)
+      ),
+    });
+    hasher.update(serializeBigInt(new toolkit.Reader(witness).length()));
+    hasher.update(witness);
+    // hashWitness(hasher, witness);
 
     return hasher.digest().serializeJson();
   })();
@@ -129,14 +143,10 @@ export async function transfer(options: Options): Promise<string> {
   signedMessage = "0x" + signedMessage.slice(2, -2) + v.toString(16).padStart(2, "0");
 
   // TODO: ?
-  const witnessArgs = new core.WitnessArgs(new toolkit.Reader("0x" + '0'.repeat(170)));
   const signedWitness = new toolkit.Reader(
-    core.SerializeWitnessArgs(
-      toolkit.normalizers.NormalizeWitnessArgs({
-        ...witnessArgs,
-        lock: signedMessage,
-      })
-    )
+    core.SerializeWitnessArgs({
+      lock: new toolkit.Reader(signedMessage).toArrayBuffer(),
+    })
   ).serializeJson();
 
   tx = tx.update("witnesses", (witnesses) => witnesses.push(signedWitness));
@@ -152,6 +162,15 @@ function serializeBigInt(i: number) {
   view.setUint32(0, i, true);
   return view.buffer;
 }
+
+// function hashWitness(hasher: Keccak256Hasher, witness: ArrayBuffer): void {
+//   const lengthBuffer = new ArrayBuffer(8);
+//   const view = new DataView(lengthBuffer);
+//   view.setBigUint64(0, BigInt(new toolkit.Reader(witness).length()), true);
+
+//   hasher.update(lengthBuffer);
+//   hasher.update(witness);
+// }
 
 export async function capacityOf(address: string): Promise<bigint> {
   const collector = indexer.collector({
