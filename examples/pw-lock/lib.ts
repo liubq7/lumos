@@ -129,7 +129,7 @@ export async function transfer(options: Options): Promise<string> {
   signedMessage = "0x" + signedMessage.slice(2, -2) + v.toString(16).padStart(2, "0");
 
   // TODO: ?
-  const witnessArgs = new core.WitnessArgs(new toolkit.Reader(messageForSigning));
+  const witnessArgs = new core.WitnessArgs(new toolkit.Reader("0x" + '0'.repeat(170)));
   const signedWitness = new toolkit.Reader(
     core.SerializeWitnessArgs(
       toolkit.normalizers.NormalizeWitnessArgs({

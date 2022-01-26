@@ -58,8 +58,9 @@ export function App() {
 
     transfer({amount: transferAmount, from: pwAddr, to: transferAddr})
       .then(setTxHash)
-      .catch((e) => alert(e.message || JSON.stringify(e)))
-      .finally(() => setIsSendingTx(false));
+      // .catch((e) => alert(e.message || JSON.stringify(e)))
+      // .finally(() => setIsSendingTx(false))
+      ;
   }
 
   if (!ethereum) return <div>MetaMask is not installed</div>;
