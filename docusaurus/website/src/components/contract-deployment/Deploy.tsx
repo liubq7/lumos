@@ -196,6 +196,7 @@ export const Deploy = () => {
           setScriptConfig(scriptConfig);
         }
       } catch (e) {
+        console.log(e);
         alert(e.message || JSON.stringify(e));
       } finally {
         setIsSendingTx(false);
