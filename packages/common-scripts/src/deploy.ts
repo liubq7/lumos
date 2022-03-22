@@ -28,14 +28,11 @@ import { BI, BIish } from "@ckb-lumos/bi";
 const { ScriptValue } = values;
 
 function bytesToHex(bytes: Uint8Array): string {
-  return (
-    "0x" +
-    [...bytes]
-      .map(function (b) {
-        return b.toString(16).padStart(2, "0");
-      })
-      .join("")
-  );
+  let res = "0x";
+  for (let i = 0; i < bytes.length; i++) {
+    res += bytes[i].toString(16).padStart(2, "0");
+  }
+  return res;
 }
 
 async function findCellsByLock(
