@@ -24,10 +24,18 @@ import { RPC } from "@ckb-lumos/rpc";
 import { Set } from "immutable";
 import { FromInfo, parseFromInfo, MultisigScript } from "./from_info";
 import { BI, BIish } from "@ckb-lumos/bi";
+
 const { ScriptValue } = values;
 
 function bytesToHex(bytes: Uint8Array): string {
-  return `0x${[...bytes].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  return (
+    "0x" +
+    [...bytes]
+      .map(function (b) {
+        return b.toString(16).padStart(2, "0");
+      })
+      .join("")
+  );
 }
 
 async function findCellsByLock(
@@ -134,7 +142,7 @@ async function injectCapacity(
   }: { config?: Config; feeRate?: BIish }
 ): Promise<TransactionSkeletonType> {
   config = config || getConfig();
-  let _feeRate = feeRate || 1000;
+  const _feeRate = feeRate || 1000;
   let _amount = BI.from(amount);
   const { fromScript, multisigScript } = parseFromInfo(fromInfo, { config });
   _amount = _amount.add(BI.from(10).pow(8));
