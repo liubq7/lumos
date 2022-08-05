@@ -497,6 +497,8 @@ export async function generateDeployWithDataTx(
     config: options.config,
   });
 
+  console.log(bytesToHex(options.scriptBinary));
+
   const output: Cell = {
     cell_output: {
       capacity: "0x0",
@@ -535,6 +537,7 @@ export async function generateDeployWithTypeIdTx(
   verifyFromInfo(options.fromInfo, { config: options.config });
 
   let txSkeleton = TransactionSkeleton({ cellProvider: options.cellProvider });
+  console.log("1", txSkeleton);
   const { fromScript } = parseFromInfo(options.fromInfo, {
     config: options.config,
   });
@@ -546,6 +549,7 @@ export async function generateDeployWithTypeIdTx(
     { previous_output: resolved.out_point!, since: "0x0" },
     "0x0"
   );
+  console.log(bytesToHex(options.scriptBinary));
   const output: Cell = {
     cell_output: {
       capacity: "0x0",
@@ -556,14 +560,18 @@ export async function generateDeployWithTypeIdTx(
   };
 
   txSkeleton = updateOutputs(txSkeleton, output);
+  console.log("2", txSkeleton);
+
   txSkeleton = updateCellDeps(txSkeleton, options.config);
+  console.log("3", txSkeleton);
+
   txSkeleton = await completeTx(
     txSkeleton,
     options.fromInfo,
     options.config,
     options.feeRate
   );
-
+  console.log("4", txSkeleton);
   const scriptConfig = getScriptConfig(txSkeleton, 0);
 
   return {
